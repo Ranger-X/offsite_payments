@@ -89,7 +89,7 @@ module OffsitePayments #:nodoc:
         mapping :currency, 'IncCurrLabel'
         mapping :order, 'InvId'
         mapping :description, 'Desc'
-        mapping :email, 'Email'
+        mapping :credential2, 'Email'
       end
 
       class Notification < OffsitePayments::Notification
