@@ -88,7 +88,7 @@ module OffsitePayments #:nodoc:
         mapping :amount, 'OutSum'
         mapping :currency, 'IncCurrLabel'
         mapping :order, 'InvId'
-        mapping :description, 'Desc'
+        mapping :credential3, 'Desc'
         mapping :credential2, 'Email'
       end
 
