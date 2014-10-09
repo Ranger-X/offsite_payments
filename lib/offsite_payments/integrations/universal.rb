@@ -129,7 +129,7 @@ module OffsitePayments #:nodoc:
         end
 
         def acknowledge(authcode = nil)
-          signature = @params.delete('x_signature')
+          signature = @params['x_signature']
           signature && signature.casecmp(generate_signature) == 0
         end
 
@@ -161,7 +161,8 @@ module OffsitePayments #:nodoc:
         private
 
         def generate_signature
-          Universal.sign(@params, @key)
+          signature_params = @params.select { |k| k.start_with? 'x_' }.reject { |k| k == 'x_signature' }
+          Universal.sign(signature_params, @key)
         end
       end
 

@@ -1,6 +1,8 @@
 module OffsitePayments #:nodoc:
   module Integrations #:nodoc:
     module Ipay88
+      CANCELLED_ERROR_DESCRIPTION = 'Customer Cancel Transaction'
+
       def self.service_url
         "https://www.mobile88.com/epayment/entry.asp"
       end
@@ -11,6 +13,10 @@ module OffsitePayments #:nodoc:
 
       def self.return(query_string, options={})
         Return.new(query_string, options)
+      end
+
+      def self.notification(post, options = {})
+        Notification.new(post, options)
       end
 
       class Helper < OffsitePayments::Helper
@@ -108,6 +114,7 @@ module OffsitePayments #:nodoc:
         mapping :language,    "Lang"
         mapping :payment,     "PaymentId"
         mapping :return_url,  "ResponseURL"
+        mapping :notify_url,  "BackendURL"
         mapping :signature,   "Signature"
 
         protected
@@ -126,7 +133,11 @@ module OffsitePayments #:nodoc:
         include ActiveMerchant::PostsData
 
         def status
-          params["Status"] == '1' ? 'Completed' : 'Failed'
+          if params["Status"] == '1'
+            'Completed'
+          else
+            error == CANCELLED_ERROR_DESCRIPTION ? 'Cancelled' : 'Failed'
+          end
         end
 
         def complete?
@@ -138,7 +149,7 @@ module OffsitePayments #:nodoc:
         end
 
         def gross
-          params["Amount"]
+          params["Amount"].try(:gsub, /,(?=\d{3}\b)/, '')
         end
 
         def currency
@@ -182,7 +193,7 @@ module OffsitePayments #:nodoc:
         end
 
         def acknowledge
-          secure? && success? && requery == "00"
+          secure? && (!success? || requery == "00")
         end
 
         protected
@@ -228,7 +239,7 @@ module OffsitePayments #:nodoc:
         end
 
         def cancelled?
-          params["ErrDesc"] == 'Customer Cancel Transaction'
+          params["ErrDesc"] == CANCELLED_ERROR_DESCRIPTION
         end
 
         def message

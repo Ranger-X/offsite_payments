@@ -62,16 +62,17 @@ module OffsitePayments #:nodoc:
 
         mapping :order, 'reference'
 
-        mapping :billing_address, :city     => 'shippingAddressCity',
-                                  :address1 => 'shippingAddressStreet',
-                                  :address2 => 'shippingAddressNumber',
-                                  :state    => 'shippingAddressState',
-                                  :zip      => 'shippingAddressPostalCode',
-                                  :country  => 'shippingAddressCountry'
-
         mapping :notify_url, 'notificationURL'
         mapping :return_url, 'redirectURL'
         mapping :description, 'itemDescription1'
+
+        def shipping_address(params = {})
+          add_field('shippingAddressCity',       params[:city].slice(0, 60))     if params[:city]
+          add_field('shippingAddressStreet',     params[:address1].slice(0, 80)) if params[:address1]
+          add_field('shippingAddressComplement', params[:address2].slice(0, 40)) if params[:address2]
+          add_field('shippingAddressState',      params[:state])
+          add_field('shippingAddressPostalCode', params[:zip].delete("^0-9").slice(0, 8)) if params[:zip]
+        end
 
         def form_fields
           invoice_id = fetch_token
@@ -164,13 +165,19 @@ module OffsitePayments #:nodoc:
       end
 
       class Notification < OffsitePayments::Notification
+        class NotificationError < StandardError; end
+
         def initialize(post, options = {})
+          @acknowledge = true
           notify_code = parse_http_query(post)["notificationCode"]
           email = options[:credential1]
           token = options[:credential2]
 
           uri = URI.join(PagSeguro.notification_url, notify_code)
           parse_xml(web_get(uri, email: email, token: token))
+
+        rescue NotificationError
+          @acknowledge = false
         end
 
         def complete?
@@ -226,9 +233,8 @@ module OffsitePayments #:nodoc:
           end
         end
 
-        # There's no acknowledge for PagSeguro
         def acknowledge
-          true
+          @acknowledge
         end
 
         private
@@ -237,6 +243,8 @@ module OffsitePayments #:nodoc:
           uri.query = URI.encode_www_form(params)
 
           response = Net::HTTP.get_response(uri)
+          raise NotificationError if response.code.to_i > 200
+
           response.body
         end
 
