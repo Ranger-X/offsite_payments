@@ -7,10 +7,10 @@ module OffsitePayments #:nodoc:
 
       # Overwrite this if you want to change the Uniteller production url
       mattr_accessor :production_url
-      self.production_url = 'https://test.wpay.uniteller.ru/pay/'
+      self.production_url = 'https://wpay.uniteller.ru/pay/'
 
       mattr_accessor :signature_parameter_name
-      self.signature_parameter_name = 'SignatureValue'
+      self.signature_parameter_name = 'Signature'
 
       def self.service_url
         mode = OffsitePayments.mode
@@ -38,13 +38,20 @@ module OffsitePayments #:nodoc:
 
       module Common
         def generate_signature_string
-          custom_param_keys = params.keys.select {|key| key =~ /^shp/}.sort
-          custom_params = custom_param_keys.map {|key| "#{key}=#{params[key]}"}
-          [main_params, secret, custom_params.compact].flatten.join(':')
+          #custom_param_keys = params.keys.select {|key| key =~ /^shp/}.sort
+          #custom_params = custom_param_keys.map {|key| "#{key}=#{params[key]}"}
+          [main_params, optional_params, secret].flatten.map{|val| Digest::MD5.hexdigest(val.to_s)}.join('&')
         end
 
         def generate_signature
-          Digest::MD5.hexdigest(generate_signature_string)
+=begin
+          Signature = uppercase(md5(md5(Shop_IDP) + '&' +
+                                        md5(Order_IDP) + '&' + md5(Subtotal_P) + '&' + md5(MeanType) +
+                                        '&' + md5(EMoneyType) + '&' + md5(Lifetime) + '&' +
+                                        md5(Customer_IDP) + '&' + md5(Card_IDP) + '&' + md5(IData) +
+                                        '&' + md5(PT_Code) + '&' + md5(password)))
+=end
+          Digest::MD5.hexdigest(generate_signature_string).upcase
         end
       end
 
@@ -53,15 +60,22 @@ module OffsitePayments #:nodoc:
 
         def initialize(order, account, options = {})
           @md5secret = options.delete(:secret)
+          add_field('CallbackFields', 'Total') # want Total summ in callback
+
           super
         end
 
         def form_fields
-          @fields.merge(OffsitePayments::Integrations::Robokassa.signature_parameter_name => generate_signature)
+          @fields.merge(OffsitePayments::Integrations::Uniteller.signature_parameter_name => generate_signature)
         end
 
         def main_params
-          [:account, :amount, :order].map {|key| @fields[mappings[key]]}
+          [:account, :order, :amount].map {|key| @fields[mappings[key]]}
+        end
+
+        def optional_params
+          # 'string' literals in below array just skipped in signature string (assigning value of empty string)
+          [:credential2, :currency, 'lifetime', 'customer_IDP', 'card_idp', 'idata', 'pt_code'].map {|key| key.is_a?(String) ? '' : @fields[mappings[key]]}
         end
 
         def params
@@ -72,80 +86,70 @@ module OffsitePayments #:nodoc:
           @md5secret
         end
 
-        def method_missing(method_id, *args)
-          method_id = method_id.to_s.gsub(/=$/, '')
-
-          # support for robokassa custom parameters
-          if method_id =~ /^shp/
-            add_field method_id, args.last
-          end
-
-          super
-        end
-
-        mapping :account, 'MrchLogin'
-        mapping :amount, 'OutSum'
-        mapping :currency, 'IncCurrLabel'
-        mapping :order, 'InvId'
-        mapping :credential3, 'Desc'
-        mapping :credential2, 'Email'
+        mapping :account, 'Shop_IDP'
+        mapping :amount, 'Subtotal_P'
+        mapping :currency, 'EMoneyType'
+        mapping :order, 'Order_IDP'
+        mapping :credential2, 'MeanType'
+        mapping :email, 'Email'
+        mapping :return_url, 'URL_RETURN_OK'
+        mapping :notify_url, 'URL_RETURN_NO'
       end
 
       class Notification < OffsitePayments::Notification
         include Common
 
         def self.recognizes?(params)
-          params.has_key?('InvId') && params.has_key?('OutSum')
+          params.has_key?('Order_ID') && params.has_key?('Status')
         end
 
         def complete?
-          true
+          status == 'Completed'
         end
 
         def amount
           BigDecimal.new(gross)
         end
 
+        def gross
+          params['Total']
+        end
+
         def item_id
-          params['InvId']
+          params['Order_ID']
+        end
+
+        def my_status
+          params['Status'].to_s.downcase
         end
 
         def security_key
-          params[OffsitePayments::Integrations::Robokassa.signature_parameter_name].to_s.downcase
-        end
-
-        def gross
-          params['OutSum']
+          params[OffsitePayments::Integrations::Uniteller.signature_parameter_name].to_s
         end
 
         def status
-          'success'
+          case my_status
+            when 'authorized', 'paid'
+              'Completed'
+            when 'waiting'
+              'Pending'
+            when 'canceled'
+              'Cancelled'
+            else
+              'Failed'
+          end
         end
 
         def secret
           @options[:secret]
         end
 
-        def main_params
-          [gross, item_id]
-        end
-
         def acknowledge(authcode = nil)
-          security_key == generate_signature
+          security_key == Digest::MD5.hexdigest("#{item_id}#{my_status}#{gross}#{secret}").upcase
         end
 
-        def success_response(*args)
-          "OK#{item_id}"
-        end
-      end
-
-      class Return < OffsitePayments::Return
-        def item_id
-          @params['InvId']
-        end
-
-        def amount
-          @params['OutSum']
+        def test?
+          OffsitePayments.mode == :test
         end
       end
     end
