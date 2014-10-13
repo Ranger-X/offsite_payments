@@ -92,7 +92,7 @@ module OffsitePayments #:nodoc:
         mapping :currency, 'EMoneyType'
         mapping :order, 'Order_IDP'
         mapping :credential2, 'MeanType'
-        mapping :email, 'Email'
+        mapping :credential3, 'Email'
         mapping :return_url, 'URL_RETURN_OK'
         mapping :notify_url, 'URL_RETURN_NO'
       end
