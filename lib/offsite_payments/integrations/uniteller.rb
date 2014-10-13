@@ -60,9 +60,10 @@ module OffsitePayments #:nodoc:
 
         def initialize(order, account, options = {})
           @md5secret = options.delete(:secret)
-          add_field('CallbackFields', 'Total') # want Total summ in callback
 
           super
+
+          add_field('CallbackFields', 'Total') # want Total summ in callback
         end
 
         def form_fields
