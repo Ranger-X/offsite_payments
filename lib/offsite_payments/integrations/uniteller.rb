@@ -14,6 +14,7 @@ module OffsitePayments #:nodoc:
 
       def self.service_url
         mode = OffsitePayments.mode
+        mode = :test
         url = case mode
                 when :production
                   self.production_url
@@ -22,6 +23,7 @@ module OffsitePayments #:nodoc:
                 else
                   raise StandardError, "Integration mode set to an invalid value: #{mode}"
               end
+
         Rails.logger.warn "Uniteller URL: #{url} for mode #{mode}"
         url
       end
@@ -154,6 +156,9 @@ module OffsitePayments #:nodoc:
         def test?
           OffsitePayments.mode == :test
         end
+      end
+
+      class Return < OffsitePayments::Return
       end
     end
   end
