@@ -13,6 +13,8 @@ module OffsitePayments #:nodoc:
       self.signature_parameter_name = 'Signature'
 
       def self.service_url
+        url = OffsitePayments.test? ? self.test_url : self.production_url
+=begin
         mode = OffsitePayments.mode
         mode = :test
         url = case mode
@@ -23,8 +25,8 @@ module OffsitePayments #:nodoc:
                 else
                   raise StandardError, "Integration mode set to an invalid value: #{mode}"
               end
-
-        Rails.logger.warn "Uniteller URL: #{url} for mode #{mode}"
+=end
+        Rails.logger.warn "Uniteller URL: #{url} for mode #{OffsitePayments.mode}"
         url
       end
 
