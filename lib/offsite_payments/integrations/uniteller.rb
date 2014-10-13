@@ -14,14 +14,16 @@ module OffsitePayments #:nodoc:
 
       def self.service_url
         mode = OffsitePayments.mode
-        case mode
-        when :production
-          self.production_url
-        when :test
-          self.test_url
-        else
-          raise StandardError, "Integration mode set to an invalid value: #{mode}"
-        end
+        url = case mode
+                when :production
+                  self.production_url
+                when :test
+                  self.test_url
+                else
+                  raise StandardError, "Integration mode set to an invalid value: #{mode}"
+              end
+        Rails.logger.warn "Uniteller URL: #{url} for mode #{mode}"
+        url
       end
 
       def self.helper(order, account, options = {})
@@ -40,7 +42,7 @@ module OffsitePayments #:nodoc:
         def generate_signature_string
           #custom_param_keys = params.keys.select {|key| key =~ /^shp/}.sort
           #custom_params = custom_param_keys.map {|key| "#{key}=#{params[key]}"}
-          [main_params, optional_params, secret].flatten.map{|val| Digest::MD5.hexdigest(val.to_s)}.join('&')
+          [main_params, optional_params, secret].flatten.map { |val| Digest::MD5.hexdigest(val.to_s) }.join('&')
         end
 
         def generate_signature
@@ -71,12 +73,12 @@ module OffsitePayments #:nodoc:
         end
 
         def main_params
-          [:account, :order, :amount].map {|key| @fields[mappings[key]]}
+          [:account, :order, :amount].map { |key| @fields[mappings[key]] }
         end
 
         def optional_params
           # 'string' literals in below array just skipped in signature string (assigning value of empty string)
-          [:credential2, :currency, 'lifetime', 'customer_IDP', 'card_idp', 'idata', 'pt_code'].map {|key| key.is_a?(String) ? '' : @fields[mappings[key]]}
+          [:credential2, :currency, 'lifetime', 'customer_IDP', 'card_idp', 'idata', 'pt_code'].map { |key| key.is_a?(String) ? '' : @fields[mappings[key]] }
         end
 
         def params
