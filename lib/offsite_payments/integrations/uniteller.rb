@@ -108,7 +108,7 @@ module OffsitePayments #:nodoc:
         include Common
 
         def self.recognizes?(params)
-          params.has_key?('Order_ID') && params.has_key?('Status')
+          params.has_key?('Order_ID')
         end
 
         def complete?
