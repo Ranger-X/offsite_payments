@@ -105,7 +105,6 @@ module OffsitePayments #:nodoc:
       end
 
       class Notification < OffsitePayments::Notification
-        include Common
 
         def self.recognizes?(params)
           params.has_key?('Order_ID')
@@ -120,7 +119,7 @@ module OffsitePayments #:nodoc:
         end
 
         def gross
-          params['Total']
+          params['Total'].to_s
         end
 
         def item_id
@@ -154,10 +153,6 @@ module OffsitePayments #:nodoc:
 
         def acknowledge(authcode = nil)
           security_key == Digest::MD5.hexdigest("#{item_id}#{my_status}#{gross}#{secret}").upcase
-        end
-
-        def test?
-          OffsitePayments.mode == :test
         end
       end
 
