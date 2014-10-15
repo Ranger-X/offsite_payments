@@ -27,7 +27,7 @@ module OffsitePayments #:nodoc:
               end
 =end
         Rails.logger.warn "Uniteller URL: #{url} for mode #{OffsitePayments.mode}"
-        url = test_url
+        #url = test_url
         url
       end
 
